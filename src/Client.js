@@ -73,6 +73,8 @@ export default class Client extends events.EventEmitter
 
 		// Local video resolution.
 		this._localVideoResolution = 'vga';
+		//if video not working
+		this.audioOnlyConnection = false
 
 		this._protooPeer.on('open', () =>
 		{
@@ -254,8 +256,11 @@ export default class Client extends events.EventEmitter
 
 	changeWebcam()
 	{
-		logger.debug('changeWebcam()');
+		if (this.audioOnlyConnection == true){
+			return 0;
+		}
 
+		logger.debug('changeWebcam()');
 		return Promise.resolve()
 			.then(() =>
 			{
@@ -426,6 +431,13 @@ export default class Client extends events.EventEmitter
 			});
 	}
 
+	
+
+	tryToConnectAudoOnly(request, accept, reject){
+		this.audioOnlyConnection = true;
+		console.warn("PROC")
+		this._handleRequest(request, accept, reject)
+	}
 	_handleRequest(request, accept, reject)
 	{
 		logger.debug('_handleRequest() [method:%s, data:%o]', request.method, request.data);
@@ -448,7 +460,7 @@ export default class Client extends events.EventEmitter
 							return this._getLocalStream(
 								{
 									audio : true,
-									video : VIDEO_CONSTRAINS[videoResolution]
+									video : this.audioOnlyConnection == true ? false : VIDEO_CONSTRAINS[videoResolution]
 								})
 								.then((stream) =>
 								{
@@ -462,6 +474,11 @@ export default class Client extends events.EventEmitter
 									
 									// Emit 'localstream' event.
 									this.emit('localstream', stream, videoResolution);
+								})
+								.catch((error) => {
+									console.error("CAMERA NOT FOUND", error)
+									this.emit('noCameraError', error);
+									this.tryToConnectAudoOnly(request, accept, reject)
 								});
 						}
 					})

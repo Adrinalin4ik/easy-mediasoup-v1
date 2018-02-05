@@ -140,6 +140,8 @@ var Client = function (_events$EventEmitter) {
 
 		// Local video resolution.
 		_this._localVideoResolution = 'vga';
+		//if video not working
+		_this.audioOnlyConnection = false;
 
 		_this._protooPeer.on('open', function () {
 			logger.debug('protoo Peer "open" event');
@@ -315,8 +317,11 @@ var Client = function (_events$EventEmitter) {
 		value: function changeWebcam() {
 			var _this3 = this;
 
-			logger.debug('changeWebcam()');
+			if (this.audioOnlyConnection == true) {
+				return 0;
+			}
 
+			logger.debug('changeWebcam()');
 			return _promise2.default.resolve().then(function () {
 				return _this3._updateWebcams();
 			}).then(function () {
@@ -496,6 +501,13 @@ var Client = function (_events$EventEmitter) {
 			});
 		}
 	}, {
+		key: 'tryToConnectAudoOnly',
+		value: function tryToConnectAudoOnly(request, accept, reject) {
+			this.audioOnlyConnection = true;
+			console.warn("PROC");
+			this._handleRequest(request, accept, reject);
+		}
+	}, {
 		key: '_handleRequest',
 		value: function _handleRequest(request, accept, reject) {
 			var _this5 = this;
@@ -513,7 +525,7 @@ var Client = function (_events$EventEmitter) {
 							if (DO_GETUSERMEDIA) {
 								return _this5._getLocalStream({
 									audio: true,
-									video: VIDEO_CONSTRAINS[videoResolution]
+									video: _this5.audioOnlyConnection == true ? false : VIDEO_CONSTRAINS[videoResolution]
 								}).then(function (stream) {
 									logger.debug('got local stream [resolution:%s]', videoResolution);
 
@@ -524,6 +536,10 @@ var Client = function (_events$EventEmitter) {
 
 									// Emit 'localstream' event.
 									_this5.emit('localstream', stream, videoResolution);
+								}).catch(function (error) {
+									console.error("CAMERA NOT FOUND", error);
+									_this5.emit('noCameraError', error);
+									_this5.tryToConnectAudoOnly(request, accept, reject);
 								});
 							}
 						}).then(function () {
