@@ -110,7 +110,7 @@ var Client = function (_events$EventEmitter) {
 		// TODO: TMP
 		global.CLIENT = _this;
 		//Configs
-		console.log(config);
+		// console.log(config)
 		VIDEO_CONSTRAINS = config.video_constrains !== undefined ? config.video_constrains : DEFAULT_VIDEO_CONSTRAINS;
 		SIMULCAST_OPTIONS = config.simulcast_options !== undefined ? config.simulcast_options : DEFAULT_SIMULCAST_OPTIONS;
 		DO_GETUSERMEDIA = config.produce !== undefined ? config.produce : DEFAULT_DO_GETUSERMEDIA;
@@ -140,8 +140,6 @@ var Client = function (_events$EventEmitter) {
 
 		// Local video resolution.
 		_this._localVideoResolution = 'vga';
-		//if video not working
-		_this.audioOnlyConnection = false;
 
 		_this._protooPeer.on('open', function () {
 			logger.debug('protoo Peer "open" event');
@@ -317,9 +315,10 @@ var Client = function (_events$EventEmitter) {
 		value: function changeWebcam() {
 			var _this3 = this;
 
-			if (this.audioOnlyConnection == true) {
-				return 0;
-			}
+			// if (this.audioOnlyConnection == true){
+			// if (!this._webcam){
+			// 	return 0;
+			// }
 
 			logger.debug('changeWebcam()');
 			return _promise2.default.resolve().then(function () {
@@ -333,67 +332,68 @@ var Client = function (_events$EventEmitter) {
 				if (idx < len - 1) idx++;else idx = 0;
 
 				_this3._webcam = _this3._webcams.get(array[idx]);
+				if (_this3._webcam) {
+					_this3._emitWebcamType();
 
-				_this3._emitWebcamType();
+					if (len < 2) return;
 
-				if (len < 2) return;
+					logger.debug('changeWebcam() | new selected webcam [deviceId:"%s"]', _this3._webcam.deviceId);
 
-				logger.debug('changeWebcam() | new selected webcam [deviceId:"%s"]', _this3._webcam.deviceId);
+					// Reset video resolution to VGA.
+					_this3._localVideoResolution = 'vga';
 
-				// Reset video resolution to VGA.
-				_this3._localVideoResolution = 'vga';
+					// For Chrome (old WenRTC API).
+					// Replace the track (so new SSRC) and renegotiate.
+					if (!_this3._peerconnection.removeTrack) {
+						_this3.removeVideo(true);
 
-				// For Chrome (old WenRTC API).
-				// Replace the track (so new SSRC) and renegotiate.
-				if (!_this3._peerconnection.removeTrack) {
-					_this3.removeVideo(true);
-
-					return _this3.addVideo();
-				}
-				// For Firefox (modern WebRTC API).
-				// Avoid renegotiation.
-				else {
-						return _this3._getLocalStream({
-							video: VIDEO_CONSTRAINS[_this3._localVideoResolution]
-						}).then(function (newStream) {
-							var newVideoTrack = newStream.getVideoTracks()[0];
-							var stream = _this3._localStream;
-							var oldVideoTrack = stream.getVideoTracks()[0];
-							var sender = void 0;
-
-							var _iteratorNormalCompletion2 = true;
-							var _didIteratorError2 = false;
-							var _iteratorError2 = undefined;
-
-							try {
-								for (var _iterator2 = (0, _getIterator3.default)(_this3._peerconnection.getSenders()), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-									sender = _step2.value;
-
-									if (sender.track === oldVideoTrack) break;
-								}
-							} catch (err) {
-								_didIteratorError2 = true;
-								_iteratorError2 = err;
-							} finally {
-								try {
-									if (!_iteratorNormalCompletion2 && _iterator2.return) {
-										_iterator2.return();
-									}
-								} finally {
-									if (_didIteratorError2) {
-										throw _iteratorError2;
-									}
-								}
-							}
-
-							sender.replaceTrack(newVideoTrack);
-							stream.removeTrack(oldVideoTrack);
-							oldVideoTrack.stop();
-							stream.addTrack(newVideoTrack);
-
-							_this3.emit('localstream', stream, _this3._localVideoResolution);
-						});
+						return _this3.addVideo();
 					}
+					// For Firefox (modern WebRTC API).
+					// Avoid renegotiation.
+					else {
+							return _this3._getLocalStream({
+								video: VIDEO_CONSTRAINS[_this3._localVideoResolution]
+							}).then(function (newStream) {
+								var newVideoTrack = newStream.getVideoTracks()[0];
+								var stream = _this3._localStream;
+								var oldVideoTrack = stream.getVideoTracks()[0];
+								var sender = void 0;
+
+								var _iteratorNormalCompletion2 = true;
+								var _didIteratorError2 = false;
+								var _iteratorError2 = undefined;
+
+								try {
+									for (var _iterator2 = (0, _getIterator3.default)(_this3._peerconnection.getSenders()), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+										sender = _step2.value;
+
+										if (sender.track === oldVideoTrack) break;
+									}
+								} catch (err) {
+									_didIteratorError2 = true;
+									_iteratorError2 = err;
+								} finally {
+									try {
+										if (!_iteratorNormalCompletion2 && _iterator2.return) {
+											_iterator2.return();
+										}
+									} finally {
+										if (_didIteratorError2) {
+											throw _iteratorError2;
+										}
+									}
+								}
+
+								sender.replaceTrack(newVideoTrack);
+								stream.removeTrack(oldVideoTrack);
+								oldVideoTrack.stop();
+								stream.addTrack(newVideoTrack);
+
+								_this3.emit('localstream', stream, _this3._localVideoResolution);
+							});
+						}
+				}
 			}).catch(function (error) {
 				logger.error('changeWebcam() failed: %o', error);
 			});
@@ -501,13 +501,6 @@ var Client = function (_events$EventEmitter) {
 			});
 		}
 	}, {
-		key: 'tryToConnectAudoOnly',
-		value: function tryToConnectAudoOnly(request, accept, reject) {
-			this.audioOnlyConnection = true;
-			console.warn("PROC");
-			this._handleRequest(request, accept, reject);
-		}
-	}, {
 		key: '_handleRequest',
 		value: function _handleRequest(request, accept, reject) {
 			var _this5 = this;
@@ -525,7 +518,7 @@ var Client = function (_events$EventEmitter) {
 							if (DO_GETUSERMEDIA) {
 								return _this5._getLocalStream({
 									audio: true,
-									video: _this5.audioOnlyConnection == true ? false : VIDEO_CONSTRAINS[videoResolution]
+									video: !_this5._webcam ? false : VIDEO_CONSTRAINS[videoResolution]
 								}).then(function (stream) {
 									logger.debug('got local stream [resolution:%s]', videoResolution);
 
@@ -537,9 +530,8 @@ var Client = function (_events$EventEmitter) {
 									// Emit 'localstream' event.
 									_this5.emit('localstream', stream, videoResolution);
 								}).catch(function (error) {
-									console.error("CAMERA NOT FOUND", error);
+									console.warn("GET_USER_MEDIA ERROR", error);
 									_this5.emit('noCameraError', error);
-									_this5.tryToConnectAudoOnly(request, accept, reject);
 								});
 							}
 						}).then(function () {
